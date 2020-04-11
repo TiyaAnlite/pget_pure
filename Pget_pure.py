@@ -7,63 +7,88 @@ from urllib.parse import unquote
 
 Prefix = '!!pget2'
 PluginName = 'Pget_pure'
-chunk_size = 5
-config_dir = os.path.join(PluginName, "whitelist.json")
+chunk_size = 8
+config_dir = os.path.join("plugins", "config", "pget2_whitelist.json")
 
-helpmsg = '''------MCD pget pure插件------
-!!pget2 [URL] -下载这个插件
+helpmsg = '''------MCDR pget pure------
+!!pget2 [URL] -下载指定插件
 --------------------------------'''
 
 
-def download(link, server):
-    server.replay(f"[{PluginName}]正在尝试连接")
+def download(link, server, info):
+    server.reply(info, f"[{PluginName}] 正在尝试连接")
     try:
         file = requests.get(link, stream=True)
     except requests.exceptions.ConnectTimeout:
-        server.replay(f"[{PluginName}]错误：连接超时")
+        server.reply(info, f"[{PluginName}] §c错误：连接超时")
         return
     except requests.exceptions.ConnectionError:
-        server.replay(f"[{PluginName}]错误：连接失败")
+        server.reply(info, f"[{PluginName}] §c错误：连接失败")
         return
 
-    length = round(int(file.headers['Content-Length']), 1)
+    length = round(int(file.headers['Content-Length']) / 1024, 2)
     if "Content-Disposition" in file.headers:
         filename = unquote(re.findall(r'filename= (.+)', file.headers["Content-Disposition"])[0])
     else:
         filename = os.path.basename(link)
-    server.replay(f"[{PluginName}]正在下载 {filename} ({length}KB)")
-    l_down_size = 0
+    file_path = os.path.join('plugins', filename)
+    server.reply(info, f"[{PluginName}] 正在下载 §b{filename} §6({length}KB)")
+    start_time = int(time.time())
     down_size = 0
-    last_time = int(time.time())
-    with open(f"{filename}.tmp", "wb") as fp:
+    with open(f"{file_path}.tmp", "wb") as fp:
         for chunk in file.iter_content(chunk_size=chunk_size):
+            now_time = int(time.time())
             fp.write(chunk)
             down_size += len(chunk)
-            u_time = int(time.time()) - last_time
-            if u_time >= 1:
-                server.replay(
-                    f"[{PluginName}]{filename} : {down_size}/{length} ({round((down_size - l_down_size) / u_time / 1024, 2)}KB/s)")
-                l_down_size += down_size
+            u_time = now_time - start_time
+            # 若下载时间过长，间隔5秒报告一次
+            if u_time >= 5:
+                server.reply(
+                    f"[{PluginName} Downloading §b{filename} §6{round(down_size / 1024, 2)}KB ({round(down_size / 1024 / u_time, 2)}KB/s)]")
+                start_time = int(time.time())
                 down_size = 0
-                last_time = int(time.time())
-    os.rename(f"{filename}.tmp", filename)
-    server.replay(f"[{PluginName}]{filename} 下载完成")
+
+    if os.path.isfile(file_path):
+        server.reply(info, f"[{PluginName}] §c警告：发现旧文件已存在，将会被覆盖")
+        os.remove(file_path)
+    os.rename(f"{file_path}.tmp", file_path)
+    server.reply(info, f"[{PluginName}] §b{filename} 下载完成")
+    if info.is_player:
+        msg = {
+            "text": "§b在MCDR重载插件，请输入或§a点击这条消息§b来重载",
+            "clickEvent": {
+                "action": "run_command",
+                "value": "!!MCDR reload plugin"
+            },
+            "hoverEvent": {
+                "action": "show_text",
+                "value": "点击重载"
+            }
+        }
+        server.execute(f"tellraw {info.player} {json.dumps(msg)}")
 
 
-def check_player(config, player, server):
+def check_player(config, player, server, info):
     flag = False
     for p in config["whitelist"]:
         if p == player:
             flag = True
     if not flag:
-        server.replay(f"[{PluginName}]你在白名单中没有权限")
+        server.reply(info, f"[{PluginName}] §c你在白名单中没有权限")
     return flag
 
 
 def on_load(server, old_module):
     # check something...
+    server.add_help_message("!!pget2", "简易插件下载助手")
+    if not os.path.isdir(os.path.join("plugins", "config")):
+        os.mkdir(os.path.join("plugins", "config"))
+        server.say(f"[{PluginName}]make config dir")
     if not os.path.isfile(config_dir):
-        server.replay(f"[{PluginName}]错误：没有找到白名单配置文件 {config_dir}")
+        server.say(f"[{PluginName}] §f没有找到白名单配置文件，正在自动创建 §b{config_dir}")
+        config = {"use_whitelist": False, "whitelist": []}
+        with open(config_dir, "w") as fp:
+            json.dump(config, fp, indent=4)
 
 
 def on_info(server, info):
@@ -71,14 +96,15 @@ def on_info(server, info):
         if os.path.isfile(config_dir):
             with open(config_dir) as handle:
                 config = json.load(handle)
-            if not config["use_whitelist"] or config["use_whitelist"] and check_player(config, info.player, server):
+            if not config["use_whitelist"] or config["use_whitelist"] and check_player(config, info.player, server,
+                                                                                       info):
                 args = info.content.split(' ')
                 if len(args) == 1:
                     for line in helpmsg.splitlines():
-                        server.replay(line)
+                        server.reply(info, line)
                 elif len(args) == 2:
-                    download(args[1], server)
+                    download(args[1], server, info)
                 else:
-                    server.replay(f"[{PluginName}]输入的参数有误")
+                    server.reply(info, f"[{PluginName}] §c输入的参数有误")
         else:
-            server.replay(f"[{PluginName}]错误：没有找到白名单配置文件 {config_dir}")
+            server.reply(info, f"[{PluginName}] §c错误：没有找到白名单配置文件 {config_dir}")
