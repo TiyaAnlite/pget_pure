@@ -18,35 +18,42 @@ helpmsg = '''------MCDR pget pure------
 def download(link, server, info):
     server.reply(info, f"[{PluginName}] 正在尝试连接")
     try:
-        file = requests.get(link, stream=True)
+        file = requests.get(link, stream=True, timeout=(10, 27))
+
+        length = round(int(file.headers['Content-Length']) / 1024, 2)
+        if "Content-Disposition" in file.headers:
+            filename = re.findall(r'filename=(.+)', file.headers["Content-Disposition"])
+            if filename:
+                print("!!!")
+                filename = unquote(filename[0])
+                if filename.startswith(" "):
+                    filename = filename[1:]
+            else:
+                filename = os.path.basename(link)
+        else:
+            filename = os.path.basename(link)
+        file_path = os.path.join('plugins', filename)
+        server.reply(info, f"[{PluginName}] 正在下载 §b{filename} §6({length}KB)")
+        start_time = int(time.time())
+        down_size = 0
+        with open(f"{file_path}.tmp", "wb") as fp:
+            for chunk in file.iter_content(chunk_size=chunk_size):
+                now_time = int(time.time())
+                fp.write(chunk)
+                down_size += len(chunk)
+                u_time = now_time - start_time
+                # 若下载时间过长，间隔5秒报告一次
+                if u_time >= 5:
+                    server.reply(
+                        f"[{PluginName} Downloading §b{filename} §6{round(down_size / 1024, 2)}KB ({round(down_size / 1024 / u_time, 2)}KB/s)]")
+                    start_time = int(time.time())
+                    down_size = 0
     except requests.exceptions.ConnectTimeout:
         server.reply(info, f"[{PluginName}] §c错误：连接超时")
         return
     except requests.exceptions.ConnectionError:
         server.reply(info, f"[{PluginName}] §c错误：连接失败")
         return
-
-    length = round(int(file.headers['Content-Length']) / 1024, 2)
-    if "Content-Disposition" in file.headers:
-        filename = unquote(re.findall(r'filename= (.+)', file.headers["Content-Disposition"])[0])
-    else:
-        filename = os.path.basename(link)
-    file_path = os.path.join('plugins', filename)
-    server.reply(info, f"[{PluginName}] 正在下载 §b{filename} §6({length}KB)")
-    start_time = int(time.time())
-    down_size = 0
-    with open(f"{file_path}.tmp", "wb") as fp:
-        for chunk in file.iter_content(chunk_size=chunk_size):
-            now_time = int(time.time())
-            fp.write(chunk)
-            down_size += len(chunk)
-            u_time = now_time - start_time
-            # 若下载时间过长，间隔5秒报告一次
-            if u_time >= 5:
-                server.reply(
-                    f"[{PluginName} Downloading §b{filename} §6{round(down_size / 1024, 2)}KB ({round(down_size / 1024 / u_time, 2)}KB/s)]")
-                start_time = int(time.time())
-                down_size = 0
 
     if os.path.isfile(file_path):
         server.reply(info, f"[{PluginName}] §c警告：发现旧文件已存在，将会被覆盖")
