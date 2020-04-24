@@ -11,6 +11,13 @@
 
 !!pget2 [URL] 下载指定插件
 
+## 权限
+
+默认玩家需要至少权限等级为2(Helper)才能访问该命令
+> 你可以在`Pget_pure.py:16`处修改`MinimumPermissionLevel`最低玩家所需权限
+
+开启白名单时以白名单为准(默认关闭)
+
 ## 配置文件：
 
 ***位于`plugins/config/pget2_whitelist.json`***

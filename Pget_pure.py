@@ -10,6 +10,11 @@ PluginName = 'Pget_pure'
 chunk_size = 8
 config_dir = os.path.join("plugins", "config", "pget2_whitelist.json")
 
+"""
+权限等级：admin[3] helper[2] user[1] guest[0]
+"""
+MinimumPermissionLevel = 2  # 你可以在此修改执行命令所需最低权限等级
+
 helpmsg = '''------MCDR pget pure------
 !!pget2 [URL] -下载指定插件
 --------------------------------'''
@@ -100,6 +105,9 @@ def on_load(server, old_module):
 
 def on_info(server, info):
     if info.is_player and info.content.startswith('!!pget2'):
+        if not server.get_permission_level(info) == MinimumPermissionLevel:
+            server.reply(info, f"[{PluginName}] §c你没有使用该命令的权限")
+            return
         if os.path.isfile(config_dir):
             with open(config_dir) as handle:
                 config = json.load(handle)
