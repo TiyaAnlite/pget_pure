@@ -105,7 +105,7 @@ def on_load(server, old_module):
 
 def on_info(server, info):
     if info.is_player and info.content.startswith('!!pget2'):
-        if not server.get_permission_level(info) < MinimumPermissionLevel:
+        if server.get_permission_level(info) < MinimumPermissionLevel:
             server.reply(info, f"[{PluginName}] §c你没有使用该命令的权限")
             return
         if os.path.isfile(config_dir):
