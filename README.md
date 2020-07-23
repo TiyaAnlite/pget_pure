@@ -1,5 +1,7 @@
 # pget_pure
-***本插件遵循 GNU-3.0 通用公共许可证***
+[![Latest release](https://img.shields.io/github/release/MCDReforged-Plugins/pget_pure.svg)](https://github.com/MCDReforged-Plugins/pget_pure/releases/latest)
+
+![License](https://img.shields.io/github/license/MCDReforged-Plugins/pget_pure.svg)
 
 支持[MCDReforged](https://github.com/Fallen-Breath/MCDReforged)的一款插件下载助手
 
